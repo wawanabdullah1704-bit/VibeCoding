@@ -1,0 +1,130 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  codeNo       String       // Matrix No for Student, Staff ID for Lecturer
+  role         String       // "STUDENT" or "LECTURER"
+  department   String       // e.g. "JTMK - Jabatan Teknologi Maklumat & Komunikasi"
+  avatar       String?
+
+  lecturerCourses  Course[]      @relation("LecturerCourses")
+  enrollments      Enrollment[]  @relation("StudentEnrollments")
+  submissions      Submission[]  @relation("StudentSubmissions")
+  groupMemberships GroupMember[] @relation("StudentGroupMemberships")
+
+  createdAt DateTime @default(now())
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  code        String   // e.g., "DFC30133"
+  name        String   // e.g., "Web Programming"
+  section     String   // e.g., "DNS3A"
+  department  String   // e.g., "JTMK"
+  lecturerId  String
+  lecturer    User     @relation("LecturerCourses", fields: [lecturerId], references: [id], onDelete: Cascade)
+
+  enrollments Enrollment[]
+  notes       Note[]
+  assignments Assignment[]
+  groups      Group[]
+
+  createdAt DateTime @default(now())
+}
+
+model Enrollment {
+  id          String   @id @default(uuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User     @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  status      String   // "PENDING", "APPROVED", "REJECTED"
+  requestedAt DateTime @default(now())
+  approvedAt  DateTime?
+
+  @@unique([courseId, studentId])
+}
+
+model Note {
+  id          String   @id @default(uuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    String   // e.g. "Nota Kuliah", "Tutorial", "Silibus", "Slide"
+  fileUrl     String
+  fileName    String
+  fileSize    String
+  createdAt   DateTime @default(now())
+}
+
+model Assignment {
+  id            String   @id @default(uuid())
+  courseId      String
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  startDate     DateTime
+  dueDate       DateTime
+  maxMarks      Int      @default(100)
+  isGroup       Boolean  @default(false)
+  fileUrl       String?
+  fileName      String?
+
+  submissions   Submission[]
+  groups        Group[]
+
+  createdAt     DateTime @default(now())
+}
+
+model Submission {
+  id           String     @id @default(uuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User       @relation("StudentSubmissions", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId      String?
+  group        Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  fileUrl      String?
+  fileName     String?
+  content      String?
+  submittedAt  DateTime   @default(now())
+  status       String     @default("PENDING_GRADE") // "PENDING_GRADE", "GRADED"
+  mark         Float?
+  feedback     String?
+
+  @@unique([assignmentId, studentId])
+}
+
+model Group {
+  id           String        @id @default(uuid())
+  courseId     String
+  course       Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assignmentId String?
+  assignment   Assignment?   @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  name         String        // e.g. "Kumpulan 1 - NextGen Web"
+  
+  members      GroupMember[]
+  submissions  Submission[]
+
+  createdAt    DateTime      @default(now())
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation("StudentGroupMemberships", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, studentId])
+}
